@@ -47,7 +47,7 @@ class WebRtcAudioTrack {
 
   // By default, WebRTC creates audio tracks with a usage attribute
   // corresponding to voice communications, such as telephony or VoIP.
-  private static final int DEFAULT_USAGE = getDefaultUsageAttribute();
+  public static final int DEFAULT_USAGE = getDefaultUsageAttribute();
 
   private static int getDefaultUsageAttribute() {
     if (Build.VERSION.SDK_INT >= 21) {
@@ -67,6 +67,7 @@ class WebRtcAudioTrack {
   private long nativeAudioTrack;
   private final Context context;
   private final AudioManager audioManager;
+  private final int usage;
   private final ThreadUtils.ThreadChecker threadChecker = new ThreadUtils.ThreadChecker();
 
   private ByteBuffer byteBuffer;
@@ -162,15 +163,16 @@ class WebRtcAudioTrack {
 
   @CalledByNative
   WebRtcAudioTrack(Context context, AudioManager audioManager) {
-    this(context, audioManager, null /* errorCallback */, null /* stateCallback */);
+    this(context, audioManager, DEFAULT_USAGE, null /* errorCallback */, null /* stateCallback */);
   }
 
-  WebRtcAudioTrack(Context context, AudioManager audioManager,
+  WebRtcAudioTrack(Context context, AudioManager audioManager, int usage,
       @Nullable AudioTrackErrorCallback errorCallback,
       @Nullable AudioTrackStateCallback stateCallback) {
     threadChecker.detachThread();
     this.context = context;
     this.audioManager = audioManager;
+    this.usage = usage;
     this.errorCallback = errorCallback;
     this.stateCallback = stateCallback;
     this.volumeLogger = new VolumeLogger(audioManager);
@@ -232,7 +234,7 @@ class WebRtcAudioTrack {
         // and to allow certain platforms or routing policies to use this information for more
         // refined volume or routing decisions.
         audioTrack =
-            createAudioTrackOnLollipopOrHigher(sampleRate, channelConfig, minBufferSizeInBytes);
+            createAudioTrackOnLollipopOrHigher(usage, sampleRate, channelConfig, minBufferSizeInBytes);
       } else {
         // Use default constructor for API levels below 21.
         audioTrack =
@@ -384,7 +386,7 @@ class WebRtcAudioTrack {
   // refined volume or routing decisions.
   @TargetApi(Build.VERSION_CODES.LOLLIPOP)
   private static AudioTrack createAudioTrackOnLollipopOrHigher(
-      int sampleRateInHz, int channelConfig, int bufferSizeInBytes) {
+      int usage, int sampleRateInHz, int channelConfig, int bufferSizeInBytes) {
     Logging.d(TAG, "createAudioTrackOnLollipopOrHigher");
     // TODO(henrika): use setPerformanceMode(int) with PERFORMANCE_MODE_LOW_LATENCY to control
     // performance when Android O is supported. Add some logging in the mean time.
@@ -396,7 +398,7 @@ class WebRtcAudioTrack {
     }
     // Create an audio track where the audio usage is for VoIP and the content type is speech.
     return new AudioTrack(new AudioAttributes.Builder()
-                              .setUsage(DEFAULT_USAGE)
+                              .setUsage(usage)
                               .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                               .build(),
         new AudioFormat.Builder()
