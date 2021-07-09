@@ -76,10 +76,8 @@ class WebRtcAudioTrack {
   private @Nullable AudioTrackThread audioThread;
   private final VolumeLogger volumeLogger;
 
-  // Samples to be played are replaced by zeros if |speakerMute| is set to true.
-  // Can be used to ensure that the speaker is fully muted.
+  // true leads to AudioTrack pausing to mute output completely
   private volatile boolean speakerMute;
-  private byte[] emptyBytes;
 
   private final @Nullable AudioTrackErrorCallback errorCallback;
   private final @Nullable AudioTrackStateCallback stateCallback;
@@ -110,6 +108,17 @@ class WebRtcAudioTrack {
       // using callbacks to the native WebRTC client.
       final int sizeInBytes = byteBuffer.capacity();
 
+      boolean muted = false;
+
+      if(speakerMute) {
+        try {
+          audioTrack.pause();
+        } catch (IllegalStateException e) {
+          Logging.e(TAG, "AudioTrack.pause failed: " + e.getMessage());
+        }
+        muted = true;
+      }
+
       while (keepAlive) {
         // Get 10ms of PCM data from the native WebRTC client. Audio data is
         // written into the common ByteBuffer using the address that was
@@ -119,21 +128,44 @@ class WebRtcAudioTrack {
         // Upon return, the buffer position will have been advanced to reflect
         // the amount of data that was successfully written to the AudioTrack.
         assertTrue(sizeInBytes <= byteBuffer.remaining());
-        if (speakerMute) {
-          byteBuffer.clear();
-          byteBuffer.put(emptyBytes);
-          byteBuffer.position(0);
+
+        final boolean tmpSpeakerMute = speakerMute; // to avoid race conditions
+        if (muted != tmpSpeakerMute) {
+          if (tmpSpeakerMute) {
+            try {
+              audioTrack.pause();
+            } catch (IllegalStateException e) {
+              Logging.e(TAG, "AudioTrack.pause failed: " + e.getMessage());
+            }
+          } else {
+            audioTrack.flush();
+            try {
+              audioTrack.play();
+            } catch (IllegalStateException e) {
+              Logging.e(TAG, "AudioTrack.play failed: " + e.getMessage());
+            }
+          }
+          muted = tmpSpeakerMute;
         }
-        int bytesWritten = writeBytes(audioTrack, byteBuffer, sizeInBytes);
-        if (bytesWritten != sizeInBytes) {
-          Logging.e(TAG, "AudioTrack.write played invalid number of bytes: " + bytesWritten);
-          // If a write() returns a negative value, an error has occurred.
-          // Stop playing and report an error in this case.
-          if (bytesWritten < 0) {
-            keepAlive = false;
-            reportWebRtcAudioTrackError("AudioTrack.write failed: " + bytesWritten);
+
+        if (!muted) {
+          int bytesWritten = writeBytes(audioTrack, byteBuffer, sizeInBytes);
+          if (bytesWritten != sizeInBytes) {
+            Logging.e(TAG, "AudioTrack.write played invalid number of bytes: " + bytesWritten);
+            // If a write() returns a negative value, an error has occurred.
+            // Stop playing and report an error in this case.
+            if (bytesWritten < 0) {
+              keepAlive = false;
+              reportWebRtcAudioTrackError("AudioTrack.write failed: " + bytesWritten);
+            }
+          }
+        } else {
+          try {
+            Thread.sleep(CALLBACK_BUFFER_SIZE_MS);
+          } catch (InterruptedException e) {
           }
         }
+
         // The byte buffer must be rewinded since byteBuffer.position() is
         // increased at each call to AudioTrack.write(). If we don't do this,
         // next call to AudioTrack.write() will fail.
@@ -193,7 +225,6 @@ class WebRtcAudioTrack {
     final int bytesPerFrame = channels * (BITS_PER_SAMPLE / 8);
     byteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * (sampleRate / BUFFERS_PER_SECOND));
     Logging.d(TAG, "byteBuffer.capacity: " + byteBuffer.capacity());
-    emptyBytes = new byte[byteBuffer.capacity()];
     // Rather than passing the ByteBuffer with every callback (requiring
     // the potentially expensive GetDirectBufferAddress) we simply have the
     // the native class cache the address to the memory once.
@@ -474,8 +505,7 @@ class WebRtcAudioTrack {
       long nativeAudioTrackJni, ByteBuffer byteBuffer);
   private static native void nativeGetPlayoutData(long nativeAudioTrackJni, int bytes);
 
-  // Sets all samples to be played out to zero if |mute| is true, i.e.,
-  // ensures that the speaker is muted.
+  // true leads to AudioTrack pausing to mute output completely
   public void setSpeakerMute(boolean mute) {
     Logging.w(TAG, "setSpeakerMute(" + mute + ")");
     speakerMute = mute;
