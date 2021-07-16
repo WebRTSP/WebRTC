@@ -76,7 +76,10 @@ VoiceProcessingAudioUnit::VoiceProcessingAudioUnit(bool bypass_voice_processing,
     : bypass_voice_processing_(bypass_voice_processing),
       observer_(observer),
       vpio_unit_(nullptr),
-      state_(kInitRequired) {
+      state_(kInitRequired),
+      sample_rate_(),
+      enable_playout_(true),
+      enable_recording_(false){
   RTC_DCHECK(observer);
 }
 
@@ -86,33 +89,19 @@ VoiceProcessingAudioUnit::~VoiceProcessingAudioUnit() {
 
 const UInt32 VoiceProcessingAudioUnit::kBytesPerSample = 2;
 
-bool VoiceProcessingAudioUnit::Init() {
-  RTC_DCHECK_EQ(state_, kInitRequired);
+bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playout, bool enable_recording)
+{
+  RTC_DCHECK_GE(state_, kUninitialized);
+  RTCLog(@"Initializing audio unit with sample rate: %f", sample_rate);
 
-  // Create an audio component description to identify the Voice Processing
-  // I/O audio unit.
-  AudioComponentDescription vpio_unit_description;
-  vpio_unit_description.componentType = kAudioUnitType_Output;
-  vpio_unit_description.componentSubType = kAudioUnitSubType_VoiceProcessingIO;
-  vpio_unit_description.componentManufacturer = kAudioUnitManufacturer_Apple;
-  vpio_unit_description.componentFlags = 0;
-  vpio_unit_description.componentFlagsMask = 0;
+  sample_rate_ = sample_rate;
+  enable_playout_ = enable_playout;
+  enable_recording_ = enable_recording;
 
-  // Obtain an audio unit instance given the description.
-  AudioComponent found_vpio_unit_ref =
-      AudioComponentFindNext(nullptr, &vpio_unit_description);
-
-  // Create a Voice Processing IO audio unit.
   OSStatus result = noErr;
-  result = AudioComponentInstanceNew(found_vpio_unit_ref, &vpio_unit_);
-  if (result != noErr) {
-    vpio_unit_ = nullptr;
-    RTCLogError(@"AudioComponentInstanceNew failed. Error=%ld.", (long)result);
-    return false;
-  }
 
   // Enable input on the input scope of the input element.
-  UInt32 enable_input = 1;
+  UInt32 enable_input = enable_recording ? 1 : 0;
   result = AudioUnitSetProperty(vpio_unit_, kAudioOutputUnitProperty_EnableIO,
                                 kAudioUnitScope_Input, kInputBus, &enable_input,
                                 sizeof(enable_input));
@@ -125,7 +114,7 @@ bool VoiceProcessingAudioUnit::Init() {
   }
 
   // Enable output on the output scope of the output element.
-  UInt32 enable_output = 1;
+  UInt32 enable_output = enable_playout ? 1 : 0;
   result = AudioUnitSetProperty(vpio_unit_, kAudioOutputUnitProperty_EnableIO,
                                 kAudioUnitScope_Output, kOutputBus,
                                 &enable_output, sizeof(enable_output));
@@ -185,19 +174,6 @@ bool VoiceProcessingAudioUnit::Init() {
     return false;
   }
 
-  state_ = kUninitialized;
-  return true;
-}
-
-VoiceProcessingAudioUnit::State VoiceProcessingAudioUnit::GetState() const {
-  return state_;
-}
-
-bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate) {
-  RTC_DCHECK_GE(state_, kUninitialized);
-  RTCLog(@"Initializing audio unit with sample rate: %f", sample_rate);
-
-  OSStatus result = noErr;
   AudioStreamBasicDescription format = GetFormat(sample_rate);
   UInt32 size = sizeof(format);
 #if !defined(NDEBUG)
@@ -327,7 +303,112 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate) {
   RTCLog(@"WebRTC.Audio.BuiltInAGCIsEnabled: %u",
          static_cast<unsigned int>(agc_is_enabled));
 
+  return true;
+}
+
+bool VoiceProcessingAudioUnit::Init() {
+  RTC_DCHECK_EQ(state_, kInitRequired);
+
+  // Create an audio component description to identify the Voice Processing
+  // I/O audio unit.
+  AudioComponentDescription vpio_unit_description;
+  vpio_unit_description.componentType = kAudioUnitType_Output;
+  vpio_unit_description.componentSubType = kAudioUnitSubType_VoiceProcessingIO;
+  vpio_unit_description.componentManufacturer = kAudioUnitManufacturer_Apple;
+  vpio_unit_description.componentFlags = 0;
+  vpio_unit_description.componentFlagsMask = 0;
+
+  // Obtain an audio unit instance given the description.
+  AudioComponent found_vpio_unit_ref =
+      AudioComponentFindNext(nullptr, &vpio_unit_description);
+
+  // Create a Voice Processing IO audio unit.
+  OSStatus result = noErr;
+  result = AudioComponentInstanceNew(found_vpio_unit_ref, &vpio_unit_);
+  if (result != noErr) {
+    vpio_unit_ = nullptr;
+    RTCLogError(@"AudioComponentInstanceNew failed. Error=%ld.", (long)result);
+    return false;
+  }
+
+  state_ = kUninitialized;
+  return true;
+}
+
+VoiceProcessingAudioUnit::State VoiceProcessingAudioUnit::GetState() const {
+  return state_;
+}
+
+bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate) {
+  Initialize(sample_rate, enable_playout_, enable_recording_);
+
   state_ = kInitialized;
+  return true;
+}
+
+bool VoiceProcessingAudioUnit::EnablePlayout(bool enable) {
+  VoiceProcessingAudioUnit::State oldState = state_;
+
+  switch (state_) {
+    case kInitRequired:
+      return false;
+    case kUninitialized:
+      break;
+    case kInitialized:
+      if(enable_playout_ == enable)
+        return true;
+      if(!Uninitialize())
+        return false;
+      break;
+    case kStarted:
+      if(enable_playout_ == enable)
+        return true;
+      if(!Stop())
+        return false;
+      if(!Uninitialize())
+        return false;
+      break;
+  }
+
+  Initialize(sample_rate_, enable, enable_recording_);
+
+  if (oldState == kStarted) {
+    return Start() == noErr;
+  }
+
+  return true;
+}
+
+bool VoiceProcessingAudioUnit::EnableRecording(bool enable) {
+  VoiceProcessingAudioUnit::State oldState = state_;
+
+  switch(state_) {
+    case kInitRequired:
+      return false;
+    case kUninitialized:
+      break;
+    case kInitialized:
+      if(enable_recording_ == enable)
+        return true;
+      if(!Uninitialize())
+        return false;
+      break;
+    case kStarted:
+      if(enable_recording_ == enable)
+        return true;
+      if(!Stop())
+        return false;
+      if(!Uninitialize())
+        return false;
+      break;
+  }
+
+  Initialize(sample_rate_, enable_playout_, enable);
+
+  if (oldState == kStarted) {
+    return Start() == noErr;
+  }
+
   return true;
 }
 

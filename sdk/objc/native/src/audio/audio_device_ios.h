@@ -278,6 +278,9 @@ class AudioDeviceIOS : public AudioDeviceGeneric,
   // false otherwise.
   bool audio_is_initialized_;
 
+  bool playout_is_initialized_;
+  bool recording_is_initialized_;
+
   // Set to true if audio session is interrupted, false otherwise.
   bool is_interrupted_;
 
