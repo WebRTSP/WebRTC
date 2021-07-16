@@ -76,6 +76,9 @@ class VoiceProcessingAudioUnit {
   // Initializes the underlying audio unit with the given sample rate.
   bool Initialize(Float64 sample_rate);
 
+  bool EnableRecording(bool enable);
+  bool EnablePlayout(bool enable);
+
   // Starts the underlying audio unit.
   bool Start();
 
@@ -93,6 +96,8 @@ class VoiceProcessingAudioUnit {
                   AudioBufferList* io_data);
 
  private:
+  bool Initialize(Float64 sample_rate, bool enable_playout, bool enable_recording);
+
   // The C API used to set callbacks requires static functions. When these are
   // called, they will invoke the relevant instance method by casting
   // in_ref_con to VoiceProcessingAudioUnit*.
@@ -132,6 +137,10 @@ class VoiceProcessingAudioUnit {
   VoiceProcessingAudioUnitObserver* observer_;
   AudioUnit vpio_unit_;
   VoiceProcessingAudioUnit::State state_;
+
+  Float64 sample_rate_;
+  bool enable_playout_;
+  bool enable_recording_;
 };
 }  // namespace ios_adm
 }  // namespace webrtc

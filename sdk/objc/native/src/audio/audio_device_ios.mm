@@ -107,6 +107,8 @@ AudioDeviceIOS::AudioDeviceIOS()
       playing_(0),
       initialized_(false),
       audio_is_initialized_(false),
+      playout_is_initialized_(true), // it's enabled by default
+      recording_is_initialized_(false),
       is_interrupted_(false),
       has_configured_session_(false),
       num_detected_playout_glitches_(0),
@@ -195,24 +197,29 @@ int32_t AudioDeviceIOS::InitPlayout() {
     }
   }
   audio_is_initialized_ = true;
+
+  if (!playout_is_initialized_) {
+    audio_unit_->EnablePlayout(true);
+    playout_is_initialized_ = true;
+  }
+
   return 0;
 }
 
 bool AudioDeviceIOS::PlayoutIsInitialized() const {
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  return audio_is_initialized_;
+  return audio_is_initialized_ && playout_is_initialized_;
 }
 
 bool AudioDeviceIOS::RecordingIsInitialized() const {
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  return audio_is_initialized_;
+  return audio_is_initialized_ && recording_is_initialized_;
 }
 
 int32_t AudioDeviceIOS::InitRecording() {
   LOGI() << "InitRecording";
   RTC_DCHECK_RUN_ON(&thread_checker_);
   RTC_DCHECK(initialized_);
-  RTC_DCHECK(!audio_is_initialized_);
   RTC_DCHECK(!recording_);
   if (!audio_is_initialized_) {
     if (!InitPlayOrRecord()) {
@@ -221,12 +228,21 @@ int32_t AudioDeviceIOS::InitRecording() {
     }
   }
   audio_is_initialized_ = true;
+
+  if (!recording_is_initialized_) {
+    audio_unit_->EnableRecording(true);
+    recording_is_initialized_ = true;
+  }
   return 0;
 }
 
 int32_t AudioDeviceIOS::StartPlayout() {
   LOGI() << "StartPlayout";
   RTC_DCHECK_RUN_ON(&thread_checker_);
+
+  if(!audio_is_initialized_)
+    InitPlayout();
+
   RTC_DCHECK(audio_is_initialized_);
   RTC_DCHECK(!playing_);
   RTC_DCHECK(audio_unit_);
@@ -240,6 +256,12 @@ int32_t AudioDeviceIOS::StartPlayout() {
     }
     RTC_LOG(LS_INFO) << "Voice-Processing I/O audio unit is now started";
   }
+
+  if(!audio_unit_->EnablePlayout(true)) {
+    RTCLogError(@"EnablePlayout failed to enable playout in audio unit.");
+    return -1;
+  }
+
   rtc::AtomicOps::ReleaseStore(&playing_, 1);
   num_playout_callbacks_ = 0;
   num_detected_playout_glitches_ = 0;
@@ -280,6 +302,10 @@ bool AudioDeviceIOS::Playing() const {
 int32_t AudioDeviceIOS::StartRecording() {
   LOGI() << "StartRecording";
   RTC_DCHECK_RUN_ON(&thread_checker_);
+
+  if(!audio_is_initialized_)
+    InitRecording();
+
   RTC_DCHECK(audio_is_initialized_);
   RTC_DCHECK(!recording_);
   RTC_DCHECK(audio_unit_);
@@ -293,6 +319,12 @@ int32_t AudioDeviceIOS::StartRecording() {
     }
     RTC_LOG(LS_INFO) << "Voice-Processing I/O audio unit is now started";
   }
+
+  if(!audio_unit_->EnableRecording(true)) {
+    RTCLogError(@"StartRecording failed to enable recording in audio unit.");
+    return -1;
+  }
+
   rtc::AtomicOps::ReleaseStore(&recording_, 1);
   return 0;
 }
@@ -306,6 +338,11 @@ int32_t AudioDeviceIOS::StopRecording() {
   if (!playing_) {
     ShutdownPlayOrRecord();
     audio_is_initialized_ = false;
+  } else {
+    if(!audio_unit_->EnableRecording(false)) {
+      RTCLogError(@"StopRecording failed to disable recording in audio unit.");
+      return -1;
+    }
   }
   rtc::AtomicOps::ReleaseStore(&recording_, 0);
   return 0;
