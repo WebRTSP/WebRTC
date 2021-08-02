@@ -51,15 +51,9 @@ AudioTransport* AudioState::audio_transport() {
   return &audio_transport_;
 }
 
-void AudioState::AddReceivingStream(
-    webrtc::AudioReceiveStreamInterface* stream) {
+void AudioState::StartPlayout()
+{
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  RTC_DCHECK_EQ(0, receiving_streams_.count(stream));
-  receiving_streams_.insert(stream);
-  if (!config_.audio_mixer->AddSource(
-          static_cast<AudioReceiveStreamImpl*>(stream))) {
-    RTC_DLOG(LS_ERROR) << "Failed to add source to mixer.";
-  }
 
   // Make sure playback is initialized; start playing if enabled.
   UpdateNullAudioPollerState();
@@ -75,6 +69,52 @@ void AudioState::AddReceivingStream(
   }
 }
 
+void AudioState::StopPlayout()
+{
+  RTC_DCHECK_RUN_ON(&thread_checker_);
+
+  config_.audio_device_module->StopPlayout();
+  UpdateNullAudioPollerState();
+}
+
+void AudioState::AddReceivingStream(
+    webrtc::AudioReceiveStreamInterface* stream) {
+  RTC_DCHECK_RUN_ON(&thread_checker_);
+  RTC_DCHECK_EQ(0, receiving_streams_.count(stream));
+  receiving_streams_.insert(std::make_pair(stream, ReceiveStreamProperties()));
+  if (!config_.audio_mixer->AddSource(
+          static_cast<AudioReceiveStreamImpl*>(stream))) {
+    RTC_DLOG(LS_ERROR) << "Failed to add source to mixer.";
+  }
+
+  StartPlayout();
+}
+
+void AudioState::ReceivingStreamMuted(
+    webrtc::AudioReceiveStreamInterface* stream,
+    bool muted)
+{
+  auto it = receiving_streams_.find(stream);
+  if (it != receiving_streams_.end()) {
+    if (it->second.muted != muted) {
+      it->second.muted = muted;
+    }
+  }
+
+  bool allMuted = true;
+  for (const auto& pair: receiving_streams_) {
+    if (!pair.second.muted) {
+      allMuted = false;
+      break;
+    }
+  }
+
+  if (allMuted)
+    StopPlayout();
+  else
+    StartPlayout();
+}
+
 void AudioState::RemoveReceivingStream(
     webrtc::AudioReceiveStreamInterface* stream) {
   RTC_DCHECK_RUN_ON(&thread_checker_);
@@ -82,9 +122,11 @@ void AudioState::RemoveReceivingStream(
   RTC_DCHECK_EQ(1, count);
   config_.audio_mixer->RemoveSource(
       static_cast<AudioReceiveStreamImpl*>(stream));
-  UpdateNullAudioPollerState();
+
   if (receiving_streams_.empty()) {
-    config_.audio_device_module->StopPlayout();
+    StopPlayout();
+  } else {
+    UpdateNullAudioPollerState();
   }
 }
 
@@ -131,8 +173,7 @@ void AudioState::SetPlayout(bool enabled) {
         config_.audio_device_module->StartPlayout();
       }
     } else {
-      config_.audio_device_module->StopPlayout();
-      UpdateNullAudioPollerState();
+      StopPlayout();
     }
   }
 }
