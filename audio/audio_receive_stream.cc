@@ -352,6 +352,15 @@ void AudioReceiveStreamImpl::SetSink(AudioSinkInterface* sink) {
 void AudioReceiveStreamImpl::SetGain(float gain) {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
   channel_receive_->SetChannelOutputVolumeScaling(gain);
+
+  const bool muted = (gain == 0.f);
+  if(muted) {
+    channel_receive_->StopPlayout();
+  } else {
+     channel_receive_->StartPlayout();
+  }
+  // trying turn off/on hardware
+  audio_state()->ReceivingStreamMuted(this, muted);
 }
 
 bool AudioReceiveStreamImpl::SetBaseMinimumPlayoutDelayMs(int delay_ms) {
