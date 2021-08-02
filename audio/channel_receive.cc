@@ -603,6 +603,7 @@ void ChannelReceive::SetSink(AudioSinkInterface* sink) {
 
 void ChannelReceive::StartPlayout() {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
+  acm_receiver_.FlushBuffers();
   playing_ = true;
 }
 
@@ -783,8 +784,17 @@ double ChannelReceive::GetTotalOutputDuration() const {
 
 void ChannelReceive::SetChannelOutputVolumeScaling(float scaling) {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
-  MutexLock lock(&volume_settings_mutex_);
-  _outputGain = scaling;
+  {
+    MutexLock lock(&volume_settings_mutex_);
+    _outputGain = scaling;
+  }
+
+  const bool muted = (scaling == 0.f);
+  if(muted) {
+    StopPlayout();
+  } else {
+    StartPlayout();
+  }
 }
 
 void ChannelReceive::RegisterReceiverCongestionControlObjects(
