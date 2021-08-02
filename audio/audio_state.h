@@ -54,6 +54,7 @@ class AudioState : public webrtc::AudioState {
   bool typing_noise_detected() const;
 
   void AddReceivingStream(webrtc::AudioReceiveStream* stream);
+  void ReceivingStreamMuted(webrtc::AudioReceiveStream* stream, bool);
   void RemoveReceivingStream(webrtc::AudioReceiveStream* stream);
 
   void AddSendingStream(webrtc::AudioSendStream* stream,
@@ -64,6 +65,9 @@ class AudioState : public webrtc::AudioState {
  private:
   void UpdateAudioTransportWithSendingStreams();
   void UpdateNullAudioPollerState();
+
+  void StartPlayout();
+  void StopPlayout();
 
   rtc::ThreadChecker thread_checker_;
   rtc::ThreadChecker process_thread_checker_;
@@ -80,7 +84,10 @@ class AudioState : public webrtc::AudioState {
   // stats are still updated.
   std::unique_ptr<NullAudioPoller> null_audio_poller_;
 
-  std::unordered_set<webrtc::AudioReceiveStream*> receiving_streams_;
+  struct ReceiveStreamProperties {
+    bool muted = false;
+  };
+  std::map<webrtc::AudioReceiveStream*, ReceiveStreamProperties> receiving_streams_;
   struct StreamProperties {
     int sample_rate_hz = 0;
     size_t num_channels = 0;
