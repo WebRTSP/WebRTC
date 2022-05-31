@@ -14,7 +14,9 @@
 #include "system_wrappers/include/metrics.h"
 
 #import "base/RTCLogging.h"
+#import "sdk/objc/components/audio/RTCAudioSession.h"
 #import "sdk/objc/components/audio/RTCAudioSessionConfiguration.h"
+
 
 #if !defined(NDEBUG)
 static void LogStreamDescription(AudioStreamBasicDescription description) {
@@ -101,7 +103,8 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
   OSStatus result = noErr;
 
   // Enable input on the input scope of the input element.
-  UInt32 enable_input = enable_recording ? 1 : 0;
+  RTC_OBJC_TYPE(RTCAudioSession) *session = [RTC_OBJC_TYPE(RTCAudioSession) sharedInstance];
+  UInt32 enable_input = enable_recording && [session.category isEqualToString: AVAudioSessionCategoryPlayAndRecord] ? 1 : 0;
   result = AudioUnitSetProperty(vpio_unit_, kAudioOutputUnitProperty_EnableIO,
                                 kAudioUnitScope_Input, kInputBus, &enable_input,
                                 sizeof(enable_input));
