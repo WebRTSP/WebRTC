@@ -78,7 +78,7 @@ VoiceProcessingAudioUnit::VoiceProcessingAudioUnit(bool bypass_voice_processing,
     : bypass_voice_processing_(bypass_voice_processing),
       observer_(observer),
       vpio_unit_(nullptr),
-      state_(kInitRequired),
+      state_(kUninitialized),
       sample_rate_(),
       enable_playout_(true),
       enable_recording_(false){
@@ -93,6 +93,18 @@ const UInt32 VoiceProcessingAudioUnit::kBytesPerSample = 2;
 
 bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playout, bool enable_recording)
 {
+  RTC_DCHECK(!vpio_unit_);
+  bool auCreated;
+  if(enable_recording) {
+    auCreated = CreateVoiceProcessingAU();
+  } else {
+    auCreated = CreatePlaybackAU();
+  }
+
+  if(!auCreated) {
+    return false;
+  }
+
   RTC_DCHECK_GE(state_, kUninitialized);
   RTCLog(@"Initializing audio unit with sample rate: %f", sample_rate);
 
@@ -102,18 +114,20 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
 
   OSStatus result = noErr;
 
-  // Enable input on the input scope of the input element.
-  RTC_OBJC_TYPE(RTCAudioSession) *session = [RTC_OBJC_TYPE(RTCAudioSession) sharedInstance];
-  UInt32 enable_input = enable_recording && [session.category isEqualToString: AVAudioSessionCategoryPlayAndRecord] ? 1 : 0;
-  result = AudioUnitSetProperty(vpio_unit_, kAudioOutputUnitProperty_EnableIO,
-                                kAudioUnitScope_Input, kInputBus, &enable_input,
-                                sizeof(enable_input));
-  if (result != noErr) {
-    DisposeAudioUnit();
-    RTCLogError(@"Failed to enable input on input scope of input element. "
-                 "Error=%ld.",
-                (long)result);
-    return false;
+  if(enable_recording) {
+    // Enable input on the input scope of the input element.
+    RTC_OBJC_TYPE(RTCAudioSession) *session = [RTC_OBJC_TYPE(RTCAudioSession) sharedInstance];
+    UInt32 enable_input = enable_recording && [session.category isEqualToString: AVAudioSessionCategoryPlayAndRecord] ? 1 : 0;
+    result = AudioUnitSetProperty(vpio_unit_, kAudioOutputUnitProperty_EnableIO,
+                                  kAudioUnitScope_Input, kInputBus, &enable_input,
+                                  sizeof(enable_input));
+    if (result != noErr) {
+      DisposeAudioUnit();
+      RTCLogError(@"Failed to enable input on input scope of input element. "
+                   "Error=%ld.",
+                  (long)result);
+      return false;
+    }
   }
 
   // Enable output on the output scope of the output element.
@@ -145,36 +159,38 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
     return false;
   }
 
-  // Disable AU buffer allocation for the recorder, we allocate our own.
-  // TODO(henrika): not sure that it actually saves resource to make this call.
-  UInt32 flag = 0;
-  result = AudioUnitSetProperty(
-      vpio_unit_, kAudioUnitProperty_ShouldAllocateBuffer,
-      kAudioUnitScope_Output, kInputBus, &flag, sizeof(flag));
-  if (result != noErr) {
-    DisposeAudioUnit();
-    RTCLogError(@"Failed to disable buffer allocation on the input bus. "
-                 "Error=%ld.",
-                (long)result);
-    return false;
-  }
+  if(enable_recording) {
+    // Disable AU buffer allocation for the recorder, we allocate our own.
+    // TODO(henrika): not sure that it actually saves resource to make this call.
+    UInt32 flag = 0;
+    result = AudioUnitSetProperty(
+        vpio_unit_, kAudioUnitProperty_ShouldAllocateBuffer,
+        kAudioUnitScope_Output, kInputBus, &flag, sizeof(flag));
+    if (result != noErr) {
+      DisposeAudioUnit();
+      RTCLogError(@"Failed to disable buffer allocation on the input bus. "
+                   "Error=%ld.",
+                  (long)result);
+      return false;
+    }
 
-  // Specify the callback to be called by the I/O thread to us when input audio
-  // is available. The recorded samples can then be obtained by calling the
-  // AudioUnitRender() method.
-  AURenderCallbackStruct input_callback;
-  input_callback.inputProc = OnDeliverRecordedData;
-  input_callback.inputProcRefCon = this;
-  result = AudioUnitSetProperty(vpio_unit_,
-                                kAudioOutputUnitProperty_SetInputCallback,
-                                kAudioUnitScope_Global, kInputBus,
-                                &input_callback, sizeof(input_callback));
-  if (result != noErr) {
-    DisposeAudioUnit();
-    RTCLogError(@"Failed to specify the input callback on the input bus. "
-                 "Error=%ld.",
-                (long)result);
-    return false;
+    // Specify the callback to be called by the I/O thread to us when input audio
+    // is available. The recorded samples can then be obtained by calling the
+    // AudioUnitRender() method.
+    AURenderCallbackStruct input_callback;
+    input_callback.inputProc = OnDeliverRecordedData;
+    input_callback.inputProcRefCon = this;
+    result = AudioUnitSetProperty(vpio_unit_,
+                                  kAudioOutputUnitProperty_SetInputCallback,
+                                  kAudioUnitScope_Global, kInputBus,
+                                  &input_callback, sizeof(input_callback));
+    if (result != noErr) {
+      DisposeAudioUnit();
+      RTCLogError(@"Failed to specify the input callback on the input bus. "
+                   "Error=%ld.",
+                  (long)result);
+      return false;
+    }
   }
 
   AudioStreamBasicDescription format = GetFormat(sample_rate);
@@ -183,15 +199,17 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
   LogStreamDescription(format);
 #endif
 
-  // Set the format on the output scope of the input element/bus.
-  result =
-      AudioUnitSetProperty(vpio_unit_, kAudioUnitProperty_StreamFormat,
-                           kAudioUnitScope_Output, kInputBus, &format, size);
-  if (result != noErr) {
-    RTCLogError(@"Failed to set format on output scope of input bus. "
-                 "Error=%ld.",
-                (long)result);
-    return false;
+  if(enable_recording) {
+    // Set the format on the output scope of the input element/bus.
+    result =
+        AudioUnitSetProperty(vpio_unit_, kAudioUnitProperty_StreamFormat,
+                             kAudioUnitScope_Output, kInputBus, &format, size);
+    if (result != noErr) {
+      RTCLogError(@"Failed to set format on output scope of input bus. "
+                   "Error=%ld.",
+                  (long)result);
+      return false;
+    }
   }
 
   // Set the format on the input scope of the output element/bus.
@@ -231,7 +249,7 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
     RTCLog(@"Voice Processing I/O unit is now initialized.");
   }
 
-  if (bypass_voice_processing_) {
+  if (bypass_voice_processing_ && enable_recording) {
     // Attempt to disable builtin voice processing.
     UInt32 toggle = 1;
     result = AudioUnitSetProperty(vpio_unit_,
@@ -246,6 +264,12 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
       RTCLogError(@"Failed to bypass voice processing. Error=%ld.", (long)result);
     }
     state_ = kInitialized;
+    return true;
+  }
+
+  state_ = kInitialized;
+
+  if(!enable_recording) {
     return true;
   }
 
@@ -309,8 +333,42 @@ bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate, bool enable_playo
   return true;
 }
 
-bool VoiceProcessingAudioUnit::Init() {
-  RTC_DCHECK_EQ(state_, kInitRequired);
+bool VoiceProcessingAudioUnit::CreatePlaybackAU() {
+  RTC_DCHECK_EQ(state_, kUninitialized);
+  RTC_DCHECK(!vpio_unit_);
+
+  RTCLog(@"Creating Playback audio unit...");
+
+  // Create an audio component description to identify the Voice Processing
+  // I/O audio unit.
+  AudioComponentDescription vpio_unit_description;
+  vpio_unit_description.componentType = kAudioUnitType_Output;
+  vpio_unit_description.componentSubType = kAudioUnitSubType_RemoteIO;
+  vpio_unit_description.componentManufacturer = kAudioUnitManufacturer_Apple;
+  vpio_unit_description.componentFlags = 0;
+  vpio_unit_description.componentFlagsMask = 0;
+
+  // Obtain an audio unit instance given the description.
+  AudioComponent found_vpio_unit_ref =
+      AudioComponentFindNext(nullptr, &vpio_unit_description);
+
+  // Create a Voice Processing IO audio unit.
+  OSStatus result = noErr;
+  result = AudioComponentInstanceNew(found_vpio_unit_ref, &vpio_unit_);
+  if (result != noErr) {
+    vpio_unit_ = nullptr;
+    RTCLogError(@"AudioComponentInstanceNew failed. Error=%ld.", (long)result);
+    return false;
+  }
+
+  return true;
+}
+
+bool VoiceProcessingAudioUnit::CreateVoiceProcessingAU() {
+  RTC_DCHECK_EQ(state_, kUninitialized);
+  RTC_DCHECK(!vpio_unit_);
+
+  RTCLog(@"Creating Voice Processing audio unit...");
 
   // Create an audio component description to identify the Voice Processing
   // I/O audio unit.
@@ -334,7 +392,6 @@ bool VoiceProcessingAudioUnit::Init() {
     return false;
   }
 
-  state_ = kUninitialized;
   return true;
 }
 
@@ -345,7 +402,6 @@ VoiceProcessingAudioUnit::State VoiceProcessingAudioUnit::GetState() const {
 bool VoiceProcessingAudioUnit::Initialize(Float64 sample_rate) {
   Initialize(sample_rate, enable_playout_, enable_recording_);
 
-  state_ = kInitialized;
   return true;
 }
 
@@ -353,23 +409,14 @@ bool VoiceProcessingAudioUnit::EnablePlayout(bool enable) {
   VoiceProcessingAudioUnit::State oldState = state_;
 
   switch (state_) {
-    case kInitRequired:
-      return false;
     case kUninitialized:
       break;
     case kInitialized:
-      if(enable_playout_ == enable)
-        return true;
-      if(!Uninitialize())
-        return false;
-      break;
+      [[fallthrough]];
     case kStarted:
       if(enable_playout_ == enable)
         return true;
-      if(!Stop())
-        return false;
-      if(!Uninitialize())
-        return false;
+      DisposeAudioUnit();
       break;
   }
 
@@ -386,23 +433,14 @@ bool VoiceProcessingAudioUnit::EnableRecording(bool enable) {
   VoiceProcessingAudioUnit::State oldState = state_;
 
   switch(state_) {
-    case kInitRequired:
-      return false;
     case kUninitialized:
       break;
     case kInitialized:
-      if(enable_recording_ == enable)
-        return true;
-      if(!Uninitialize())
-        return false;
-      break;
+      [[fallthrough]];
     case kStarted:
       if(enable_recording_ == enable)
         return true;
-      if(!Stop())
-        return false;
-      if(!Uninitialize())
-        return false;
+      DisposeAudioUnit();
       break;
   }
 
@@ -446,20 +484,22 @@ bool VoiceProcessingAudioUnit::Stop() {
   return true;
 }
 
-bool VoiceProcessingAudioUnit::Uninitialize() {
+void VoiceProcessingAudioUnit::UninitializeAudioUnit() {
   RTC_DCHECK_GE(state_, kUninitialized);
   RTCLog(@"Unintializing audio unit.");
 
   OSStatus result = AudioUnitUninitialize(vpio_unit_);
   if (result != noErr) {
     RTCLogError(@"Failed to uninitialize audio unit. Error=%ld", (long)result);
-    return false;
   } else {
     RTCLog(@"Uninitialized audio unit.");
   }
 
   state_ = kUninitialized;
-  return true;
+}
+
+void VoiceProcessingAudioUnit::Uninitialize() {
+  DisposeAudioUnit();
 }
 
 OSStatus VoiceProcessingAudioUnit::Render(AudioUnitRenderActionFlags* flags,
@@ -551,10 +591,9 @@ void VoiceProcessingAudioUnit::DisposeAudioUnit() {
         Stop();
         [[fallthrough]];
       case kInitialized:
-        Uninitialize();
+        UninitializeAudioUnit();
         break;
       case kUninitialized:
-      case kInitRequired:
         break;
     }
 

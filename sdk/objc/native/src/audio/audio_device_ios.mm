@@ -782,10 +782,6 @@ bool AudioDeviceIOS::CreateAudioUnit() {
   RTC_DCHECK(!audio_unit_);
 
   audio_unit_.reset(new VoiceProcessingAudioUnit(bypass_voice_processing_, this));
-  if (!audio_unit_->Init()) {
-    audio_unit_.reset();
-    return false;
-  }
 
   return true;
 }
@@ -814,10 +810,6 @@ void AudioDeviceIOS::UpdateAudioUnit(bool can_play_or_record) {
   bool should_stop_audio_unit = false;
 
   switch (audio_unit_->GetState()) {
-    case VoiceProcessingAudioUnit::kInitRequired:
-      RTCLog(@"VPAU state: InitRequired");
-      RTC_DCHECK_NOTREACHED();
-      break;
     case VoiceProcessingAudioUnit::kUninitialized:
       RTCLog(@"VPAU state: Uninitialized");
       should_initialize_audio_unit = can_play_or_record;
