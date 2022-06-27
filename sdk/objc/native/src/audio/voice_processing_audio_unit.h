@@ -52,9 +52,7 @@ class VoiceProcessingAudioUnit {
 
   // TODO(tkchin): enum for state and state checking.
   enum State : int32_t {
-    // Init() should be called.
-    kInitRequired,
-    // Audio unit created but not initialized.
+    // Audio unit not initialized.
     kUninitialized,
     // Initialized but not started. Equivalent to stopped.
     kInitialized,
@@ -65,13 +63,16 @@ class VoiceProcessingAudioUnit {
   // Number of bytes per audio sample for 16-bit signed integer representation.
   static const UInt32 kBytesPerSample;
 
+ private:
   // Initializes this class by creating the underlying audio unit instance.
   // Creates a Voice-Processing I/O unit and configures it for full-duplex
   // audio. The selected stream format is selected to avoid internal resampling
   // and to match the 10ms callback rate for WebRTC as well as possible.
   // Does not intialize the audio unit.
-  bool Init();
+  bool CreateVoiceProcessingAU();
+  bool CreatePlaybackAU();
 
+public:
   VoiceProcessingAudioUnit::State GetState() const;
 
   // Initializes the underlying audio unit with the given sample rate.
