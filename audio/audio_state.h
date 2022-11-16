@@ -59,6 +59,7 @@ class AudioState : public webrtc::AudioState {
   void AddSendingStream(webrtc::AudioSendStream* stream,
                         int sample_rate_hz,
                         size_t num_channels);
+  void TryActivateRecording();
   void RemoveSendingStream(webrtc::AudioSendStream* stream);
 
  private:

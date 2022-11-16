@@ -334,6 +334,7 @@ void AudioSendStream::ConfigureStream(
 void AudioSendStream::Start() {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
   if (sending_) {
+    audio_state()->TryActivateRecording();
     return;
   }
   RTC_LOG(LS_INFO) << "AudioSendStream::Start: " << config_.rtp.ssrc;
