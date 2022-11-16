@@ -11,6 +11,8 @@
 #ifndef SDK_OBJC_NATIVE_SRC_AUDIO_VOICE_PROCESSING_AUDIO_UNIT_H_
 #define SDK_OBJC_NATIVE_SRC_AUDIO_VOICE_PROCESSING_AUDIO_UNIT_H_
 
+#include <atomic>
+
 #include <AudioUnit/AudioUnit.h>
 
 namespace webrtc {
@@ -52,9 +54,7 @@ class VoiceProcessingAudioUnit {
 
   // TODO(tkchin): enum for state and state checking.
   enum State : int32_t {
-    // Init() should be called.
-    kInitRequired,
-    // Audio unit created but not initialized.
+    // Audio unit not initialized.
     kUninitialized,
     // Initialized but not started. Equivalent to stopped.
     kInitialized,
@@ -65,17 +65,29 @@ class VoiceProcessingAudioUnit {
   // Number of bytes per audio sample for 16-bit signed integer representation.
   static const UInt32 kBytesPerSample;
 
+ private:
   // Initializes this class by creating the underlying audio unit instance.
   // Creates a Voice-Processing I/O unit and configures it for full-duplex
   // audio. The selected stream format is selected to avoid internal resampling
   // and to match the 10ms callback rate for WebRTC as well as possible.
   // Does not intialize the audio unit.
-  bool Init();
+  bool CreateVoiceProcessingAU();
+  bool CreatePlaybackAU();
 
+public:
   VoiceProcessingAudioUnit::State GetState() const;
 
+  bool CanRecord() const;
+
+  void InitializeSampleRate(Float64 sample_rate);
   // Initializes the underlying audio unit with the given sample rate.
-  bool Initialize(Float64 sample_rate);
+  bool Initialize(Float64 sample_rate, bool enable_playout, bool enable_recording);
+
+
+  bool StartRecording();
+  bool StopRecording();
+  bool StartPlayout();
+  bool StopPlayout();
 
   // Starts the underlying audio unit.
   OSStatus Start();
@@ -83,8 +95,8 @@ class VoiceProcessingAudioUnit {
   // Stops the underlying audio unit.
   bool Stop();
 
-  // Uninitializes the underlying audio unit.
-  bool Uninitialize();
+  // Uninitializes and disposes the underlying audio unit.
+  void Uninitialize();
 
   // Calls render on the underlying audio unit.
   OSStatus Render(AudioUnitRenderActionFlags* flags,
@@ -127,13 +139,22 @@ class VoiceProcessingAudioUnit {
   // implementation file for details on format.
   AudioStreamBasicDescription GetFormat(Float64 sample_rate) const;
 
+  void UninitializeAudioUnit();
   // Deletes the underlying audio unit.
   void DisposeAudioUnit();
+
+  static std::atomic_bool mic_owning_;
 
   const bool bypass_voice_processing_;
   VoiceProcessingAudioUnitObserver* observer_;
   AudioUnit vpio_unit_;
   VoiceProcessingAudioUnit::State state_;
+
+  // Following keep configuration requested externally.
+  // And exact audio unit configuration can be different.
+  Float64 sample_rate_;
+  bool playout_enabled_;
+  bool recording_enabled_;
 };
 }  // namespace ios_adm
 }  // namespace webrtc
