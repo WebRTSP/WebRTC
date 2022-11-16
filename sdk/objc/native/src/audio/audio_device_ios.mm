@@ -244,6 +244,12 @@ int32_t AudioDeviceIOS::StartPlayout() {
     }
     RTC_LOG(LS_INFO) << "Voice-Processing I/O audio unit is now started";
   }
+
+  if(!audio_unit_->StartPlayout()) {
+    RTCLogError(@"StartPlayout failed to enable playout in audio unit.");
+    return -1;
+  }
+
   rtc::AtomicOps::ReleaseStore(&playing_, 1);
   num_playout_callbacks_ = 0;
   num_detected_playout_glitches_ = 0;
@@ -259,6 +265,11 @@ int32_t AudioDeviceIOS::StopPlayout() {
   if (!recording_) {
     ShutdownPlayOrRecord();
     audio_is_initialized_ = false;
+  } else {
+    if(!audio_unit_->StopPlayout()) {
+      RTCLogError(@"StopPlayout failed to disable playout in audio unit.");
+        return -1;
+    }
   }
   rtc::AtomicOps::ReleaseStore(&playing_, 0);
 
@@ -287,6 +298,12 @@ int32_t AudioDeviceIOS::StartRecording() {
   RTC_DCHECK(audio_is_initialized_);
   RTC_DCHECK(!recording_);
   RTC_DCHECK(audio_unit_);
+
+  if(!audio_unit_->CanRecord()) {
+      RTCLogError(@"VoiceProcessingAudioUnit is not ready to start recording");
+      return -1;
+  }
+
   if (fine_audio_buffer_) {
     fine_audio_buffer_->ResetRecord();
   }
@@ -300,6 +317,12 @@ int32_t AudioDeviceIOS::StartRecording() {
     }
     RTC_LOG(LS_INFO) << "Voice-Processing I/O audio unit is now started";
   }
+
+  if(!audio_unit_->StartRecording()) {
+    RTCLogError(@"StartRecording failed to enable recording in audio unit.");
+    return -1;
+  }
+
   rtc::AtomicOps::ReleaseStore(&recording_, 1);
   return 0;
 }
@@ -313,6 +336,11 @@ int32_t AudioDeviceIOS::StopRecording() {
   if (!playing_) {
     ShutdownPlayOrRecord();
     audio_is_initialized_ = false;
+  } else {
+    if(!audio_unit_->StopRecording()) {
+      RTCLogError(@"StopRecording failed to disable recording in audio unit.");
+      return -1;
+    }
   }
   rtc::AtomicOps::ReleaseStore(&recording_, 0);
   return 0;
@@ -620,7 +648,7 @@ void AudioDeviceIOS::HandleSampleRateChange(float sample_rate) {
 
   // Initialize the audio unit again with the new sample rate.
   RTC_DCHECK_EQ(playout_parameters_.sample_rate(), session_sample_rate);
-  if (!audio_unit_->Initialize(session_sample_rate)) {
+  if (!audio_unit_->Initialize(session_sample_rate, playing_, recording_)) {
     RTCLogError(@"Failed to initialize the audio unit with sample rate: %f", session_sample_rate);
     return;
   }
@@ -745,10 +773,6 @@ bool AudioDeviceIOS::CreateAudioUnit() {
   RTC_DCHECK(!audio_unit_);
 
   audio_unit_.reset(new VoiceProcessingAudioUnit(bypass_voice_processing_, this));
-  if (!audio_unit_->Init()) {
-    audio_unit_.reset();
-    return false;
-  }
 
   return true;
 }
@@ -777,13 +801,9 @@ void AudioDeviceIOS::UpdateAudioUnit(bool can_play_or_record) {
   bool should_stop_audio_unit = false;
 
   switch (audio_unit_->GetState()) {
-    case VoiceProcessingAudioUnit::kInitRequired:
-      RTCLog(@"VPAU state: InitRequired");
-      RTC_DCHECK_NOTREACHED();
-      break;
     case VoiceProcessingAudioUnit::kUninitialized:
       RTCLog(@"VPAU state: Uninitialized");
-      should_initialize_audio_unit = can_play_or_record;
+      should_initialize_audio_unit = can_play_or_record && (playing_ || recording_);
       should_start_audio_unit = should_initialize_audio_unit && (playing_ || recording_);
       break;
     case VoiceProcessingAudioUnit::kInitialized:
@@ -803,7 +823,7 @@ void AudioDeviceIOS::UpdateAudioUnit(bool can_play_or_record) {
     RTCLog(@"Initializing audio unit for UpdateAudioUnit");
     ConfigureAudioSession();
     SetupAudioBuffersForActiveAudioSession();
-    if (!audio_unit_->Initialize(playout_parameters_.sample_rate())) {
+    if (!audio_unit_->Initialize(playout_parameters_.sample_rate(), playing_, recording_)) {
       RTCLogError(@"Failed to initialize audio unit.");
       return;
     }
@@ -929,7 +949,7 @@ bool AudioDeviceIOS::InitPlayOrRecord() {
       return false;
     }
     SetupAudioBuffersForActiveAudioSession();
-    audio_unit_->Initialize(playout_parameters_.sample_rate());
+    audio_unit_->InitializeSampleRate(playout_parameters_.sample_rate());
   }
 
   // Release the lock.
