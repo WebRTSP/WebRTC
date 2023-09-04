@@ -606,6 +606,7 @@ void ChannelReceive::SetSink(AudioSinkInterface* sink) {
 
 void ChannelReceive::StartPlayout() {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
+  acm_receiver_.FlushBuffers();
   playing_ = true;
 }
 
