@@ -684,8 +684,6 @@ AudioStreamBasicDescription VoiceProcessingAudioUnit::GetFormat(
 }
 
 void VoiceProcessingAudioUnit::DisposeAudioUnit() {
-  RTC_DCHECK((vpio_unit_ == nullptr) == (state_ == kUninitialized));
-
   if (vpio_unit_) {
     const bool recording_was_enabled = recording_enabled_;
 
