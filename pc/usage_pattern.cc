@@ -21,7 +21,7 @@ void UsagePattern::NoteUsageEvent(UsageEvent event) {
 }
 
 void UsagePattern::ReportUsagePattern(PeerConnectionObserver* observer) const {
-  RTC_DLOG(LS_INFO) << "Usage signature is " << usage_event_accumulator_;
+  RTC_DLOG(LS_VERBOSE) << "Usage signature is " << usage_event_accumulator_;
   RTC_HISTOGRAM_ENUMERATION_SPARSE("WebRTC.PeerConnection.UsagePattern",
                                    usage_event_accumulator_,
                                    static_cast<int>(UsageEvent::MAX_VALUE));
@@ -39,7 +39,7 @@ void UsagePattern::ReportUsagePattern(PeerConnectionObserver* observer) const {
     if (observer) {
       observer->OnInterestingUsage(usage_event_accumulator_);
     } else {
-      RTC_LOG(LS_INFO) << "Interesting usage signature "
+      RTC_LOG(LS_VERBOSE) << "Interesting usage signature "
                        << usage_event_accumulator_
                        << " observed after observer shutdown";
     }
