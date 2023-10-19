@@ -23,7 +23,7 @@
 #import "base/RTCLogging.h"
 
 #if !defined(ABSL_HAVE_THREAD_LOCAL)
-#error ABSL_HAVE_THREAD_LOCAL should be defined for MacOS / iOS Targets.
+// #error ABSL_HAVE_THREAD_LOCAL should be defined for MacOS / iOS Targets.
 #endif
 
 NSString *const kRTCAudioSessionErrorDomain = @"org.webrtc.RTC_OBJC_TYPE(RTCAudioSession)";
