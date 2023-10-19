@@ -765,7 +765,7 @@ void ModuleRtpRtcpImpl2::MaybeSendRtcpAtOrAfterTimestamp(
   TimeDelta delta = execution_time - now;
   // TaskQueue may run task 1ms earlier, so don't print warning if in this case.
   if (delta > TimeDelta::Millis(1)) {
-    RTC_DLOG(LS_WARNING) << "BUGBUG: Task queue scheduled delayed call "
+    RTC_DLOG(LS_VERBOSE) << "BUGBUG: Task queue scheduled delayed call "
                          << delta << " too early.";
   }
 

@@ -373,7 +373,7 @@ void TurnPort::PrepareAddress() {
     // Insert the current address to prevent redirection pingpong.
     attempted_server_addresses_.insert(server_address_.address);
 
-    RTC_LOG(LS_INFO)
+    RTC_LOG(LS_VERBOSE)
         << ToString() << ": Trying to connect to TURN server via "
         << ProtoToString(server_address_.proto) << " @ "
         << server_address_.address.ToSensitiveNameAndAddressString();
@@ -512,7 +512,7 @@ void TurnPort::OnSocketConnect(rtc::AsyncPacketSocket* socket) {
     server_address_.address = socket_->GetRemoteAddress();
   }
 
-  RTC_LOG(LS_INFO) << "TurnPort connected to "
+  RTC_LOG(LS_VERBOSE) << "TurnPort connected to "
                    << socket->GetRemoteAddress().ToSensitiveString()
                    << " using tcp.";
   SendRequest(new TurnAllocateRequest(this), 0);
@@ -536,7 +536,7 @@ void TurnPort::OnAllocateMismatch() {
     return;
   }
 
-  RTC_LOG(LS_INFO) << ToString()
+  RTC_LOG(LS_VERBOSE) << ToString()
                    << ": Allocating a new socket after "
                       "STUN_ERROR_ALLOCATION_MISMATCH, retry: "
                    << allocate_mismatch_retries_ + 1;
@@ -791,7 +791,7 @@ bool TurnPort::SetAlternateServer(const rtc::SocketAddress& address) {
     return false;
   }
 
-  RTC_LOG(LS_INFO) << ToString() << ": Redirecting from TURN server ["
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Redirecting from TURN server ["
                    << server_address_.address.ToSensitiveNameAndAddressString()
                    << "] to TURN server ["
                    << address.ToSensitiveNameAndAddressString() << "]";
@@ -806,7 +806,7 @@ void TurnPort::ResolveTurnAddress(const rtc::SocketAddress& address) {
   if (resolver_)
     return;
 
-  RTC_LOG(LS_INFO) << ToString() << ": Starting TURN host lookup for "
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Starting TURN host lookup for "
                    << address.ToSensitiveString();
   resolver_ = socket_factory()->CreateAsyncDnsResolver();
   auto callback = [this] {
@@ -852,7 +852,7 @@ void TurnPort::OnSendStunPacket(const void* data,
   options.info_signaled_after_sent.packet_type = rtc::PacketType::kTurnMessage;
   CopyPortInformationToPacketInfo(&options.info_signaled_after_sent);
   if (Send(data, size, options) < 0) {
-    RTC_LOG(LS_ERROR) << ToString() << ": Failed to send TURN message, error: "
+    RTC_LOG(LS_WARNING) << ToString() << ": Failed to send TURN message, error: "
                       << socket_->GetError();
   }
 }
@@ -1109,7 +1109,7 @@ bool TurnPort::ScheduleRefresh(uint32_t lifetime) {
   }
 
   SendRequest(new TurnRefreshRequest(this), delay);
-  RTC_LOG(LS_INFO) << ToString() << ": Scheduled refresh in " << delay << "ms.";
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Scheduled refresh in " << delay << "ms.";
   return true;
 }
 
@@ -1319,13 +1319,13 @@ TurnAllocateRequest::TurnAllocateRequest(TurnPort* port)
 }
 
 void TurnAllocateRequest::OnSent() {
-  RTC_LOG(LS_INFO) << port_->ToString() << ": TURN allocate request sent, id="
+  RTC_LOG(LS_VERBOSE) << port_->ToString() << ": TURN allocate request sent, id="
                    << rtc::hex_encode(id());
   StunRequest::OnSent();
 }
 
 void TurnAllocateRequest::OnResponse(StunMessage* response) {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN allocate requested successfully, id="
                    << rtc::hex_encode(id())
                    << ", code=0"  // Makes logging easier to parse.
@@ -1371,7 +1371,7 @@ void TurnAllocateRequest::OnErrorResponse(StunMessage* response) {
   // Process error response according to RFC5766, Section 6.4.
   int error_code = response->GetErrorCodeValue();
 
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": Received TURN allocate error response, id="
                    << rtc::hex_encode(id()) << ", code=" << error_code
                    << ", rtt=" << Elapsed();
@@ -1401,7 +1401,7 @@ void TurnAllocateRequest::OnErrorResponse(StunMessage* response) {
 }
 
 void TurnAllocateRequest::OnTimeout() {
-  RTC_LOG(LS_WARNING) << port_->ToString() << ": TURN allocate request "
+  RTC_LOG(LS_VERBOSE) << port_->ToString() << ": TURN allocate request "
                       << rtc::hex_encode(id()) << " timeout";
   port_->OnAllocateRequestTimeout();
 }
@@ -1468,7 +1468,7 @@ void TurnAllocateRequest::OnTryAlternate(StunMessage* response, int code) {
   const StunByteStringAttribute* realm_attr =
       response->GetByteString(STUN_ATTR_REALM);
   if (realm_attr) {
-    RTC_LOG(LS_INFO) << port_->ToString()
+    RTC_LOG(LS_VERBOSE) << port_->ToString()
                      << ": Applying STUN_ATTR_REALM attribute in "
                         "try alternate error response.";
     port_->set_realm(realm_attr->string_view());
@@ -1477,7 +1477,7 @@ void TurnAllocateRequest::OnTryAlternate(StunMessage* response, int code) {
   const StunByteStringAttribute* nonce_attr =
       response->GetByteString(STUN_ATTR_NONCE);
   if (nonce_attr) {
-    RTC_LOG(LS_INFO) << port_->ToString()
+    RTC_LOG(LS_VERBOSE) << port_->ToString()
                      << ": Applying STUN_ATTR_NONCE attribute in "
                         "try alternate error response.";
     port_->set_nonce(nonce_attr->string_view());
@@ -1509,13 +1509,13 @@ TurnRefreshRequest::TurnRefreshRequest(TurnPort* port, int lifetime /*= -1*/)
 }
 
 void TurnRefreshRequest::OnSent() {
-  RTC_LOG(LS_INFO) << port_->ToString() << ": TURN refresh request sent, id="
+  RTC_LOG(LS_VERBOSE) << port_->ToString() << ": TURN refresh request sent, id="
                    << rtc::hex_encode(id());
   StunRequest::OnSent();
 }
 
 void TurnRefreshRequest::OnResponse(StunMessage* response) {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN refresh requested successfully, id="
                    << rtc::hex_encode(id())
                    << ", code=0"  // Makes logging easier to parse.
@@ -1605,14 +1605,14 @@ TurnCreatePermissionRequest::~TurnCreatePermissionRequest() {
 }
 
 void TurnCreatePermissionRequest::OnSent() {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN create permission request sent, id="
                    << rtc::hex_encode(id());
   StunRequest::OnSent();
 }
 
 void TurnCreatePermissionRequest::OnResponse(StunMessage* response) {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN permission requested successfully, id="
                    << rtc::hex_encode(id())
                    << ", code=0"  // Makes logging easier to parse.
@@ -1678,14 +1678,14 @@ TurnChannelBindRequest::~TurnChannelBindRequest() {
 }
 
 void TurnChannelBindRequest::OnSent() {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN channel bind request sent, id="
                    << rtc::hex_encode(id());
   StunRequest::OnSent();
 }
 
 void TurnChannelBindRequest::OnResponse(StunMessage* response) {
-  RTC_LOG(LS_INFO) << port_->ToString()
+  RTC_LOG(LS_VERBOSE) << port_->ToString()
                    << ": TURN channel bind requested successfully, id="
                    << rtc::hex_encode(id())
                    << ", code=0"  // Makes logging easier to parse.
@@ -1700,7 +1700,7 @@ void TurnChannelBindRequest::OnResponse(StunMessage* response) {
     // permission from expiring.
     TimeDelta delay = kTurnPermissionTimeout - TimeDelta::Minutes(1);
     entry_->SendChannelBindRequest(delay.ms());
-    RTC_LOG(LS_INFO) << port_->ToString() << ": Scheduled channel bind in "
+    RTC_LOG(LS_VERBOSE) << port_->ToString() << ": Scheduled channel bind in "
                      << delay.ms() << "ms.";
   }
 }
@@ -1800,7 +1800,7 @@ int TurnEntry::Send(const void* data,
 }
 
 void TurnEntry::OnCreatePermissionSuccess() {
-  RTC_LOG(LS_INFO) << port_->ToString() << ": Create permission for "
+  RTC_LOG(LS_VERBOSE) << port_->ToString() << ": Create permission for "
                    << ext_addr_.ToSensitiveString() << " succeeded";
   if (port_->callbacks_for_test_) {
     port_->callbacks_for_test_->OnTurnCreatePermissionResult(
@@ -1814,7 +1814,7 @@ void TurnEntry::OnCreatePermissionSuccess() {
     // times out.
     TimeDelta delay = kTurnPermissionTimeout - TimeDelta::Minutes(1);
     SendCreatePermissionRequest(delay.ms());
-    RTC_LOG(LS_INFO) << port_->ToString()
+    RTC_LOG(LS_VERBOSE) << port_->ToString()
                      << ": Scheduled create-permission-request in "
                      << delay.ms() << "ms.";
   }
@@ -1843,7 +1843,7 @@ void TurnEntry::OnCreatePermissionTimeout() {
 }
 
 void TurnEntry::OnChannelBindSuccess() {
-  RTC_LOG(LS_INFO) << port_->ToString() << ": Successful channel bind for "
+  RTC_LOG(LS_VERBOSE) << port_->ToString() << ": Successful channel bind for "
                    << ext_addr_.ToSensitiveString();
   RTC_DCHECK(state_ == STATE_BINDING || state_ == STATE_BOUND);
   state_ = STATE_BOUND;

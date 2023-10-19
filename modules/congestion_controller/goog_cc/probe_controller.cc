@@ -290,7 +290,7 @@ std::vector<ProbeClusterConfig> ProbeController::SetEstimatedBitrate(
             ? network_estimate_->link_capacity_upper *
                   config_.further_probe_threshold
             : DataRate::PlusInfinity();
-    RTC_LOG(LS_INFO) << "Measured bitrate: " << bitrate
+    RTC_LOG(LS_VERBOSE) << "Measured bitrate: " << bitrate
                      << " Minimum to probe further: "
                      << min_bitrate_to_probe_further_ << " upper limit: "
                      << network_state_estimate_probe_further_limit;
@@ -343,7 +343,7 @@ std::vector<ProbeClusterConfig> ProbeController::RequestProbe(
       if (min_expected_probe_result > estimated_bitrate_ &&
           time_since_drop < kBitrateDropTimeout &&
           time_since_probe > kMinTimeBetweenAlrProbes) {
-        RTC_LOG(LS_INFO) << "Detected big bandwidth drop, start probing.";
+        RTC_LOG(LS_VERBOSE) << "Detected big bandwidth drop, start probing.";
         // Track how often we probe in response to bandwidth drop in ALR.
         RTC_HISTOGRAM_COUNTS_10000(
             "WebRTC.BWE.BweDropProbingIntervalInS",
@@ -424,7 +424,7 @@ std::vector<ProbeClusterConfig> ProbeController::Process(Timestamp at_time) {
   if (at_time - time_last_probing_initiated_ >
       kMaxWaitingTimeForProbingResult) {
     if (state_ == State::kWaitingForProbingResult) {
-      RTC_LOG(LS_INFO) << "kWaitingForProbingResult: timeout";
+      RTC_LOG(LS_VERBOSE) << "kWaitingForProbingResult: timeout";
       state_ = State::kProbingComplete;
       min_bitrate_to_probe_further_ = DataRate::PlusInfinity();
     }
