@@ -158,7 +158,7 @@ bool CheckForRemoteIceRestart(const SessionDescriptionInterface* old_desc,
   if (cricket::IceCredentialsChanged(
           old_transport_desc->ice_ufrag, old_transport_desc->ice_pwd,
           new_transport_desc->ice_ufrag, new_transport_desc->ice_pwd)) {
-    RTC_LOG(LS_INFO) << "Remote peer requests ICE restart for " << content_name
+    RTC_LOG(LS_VERBOSE) << "Remote peer requests ICE restart for " << content_name
                      << ".";
     return true;
   }
@@ -2139,7 +2139,7 @@ void SdpOfferAnswerHandler::ApplyRemoteDescriptionUpdateTransceiverState(
         stream_ids = media_desc->streams()[0].stream_ids();
       }
 
-      RTC_LOG(LS_INFO) << "Processing the MSIDs for MID=" << content->name
+      RTC_LOG(LS_VERBOSE) << "Processing the MSIDs for MID=" << content->name
                        << " (" << GetStreamIdsString(stream_ids) << ").";
       SetAssociatedRemoteStreams(transceiver->receiver_internal(), stream_ids,
                                  &added_streams, &removed_streams);
@@ -2149,7 +2149,7 @@ void SdpOfferAnswerHandler::ApplyRemoteDescriptionUpdateTransceiverState(
       // process the addition of a remote track for the media description.
       if (!transceiver->fired_direction() ||
           !RtpTransceiverDirectionHasRecv(*transceiver->fired_direction())) {
-        RTC_LOG(LS_INFO) << "Processing the addition of a remote track for MID="
+        RTC_LOG(LS_VERBOSE) << "Processing the addition of a remote track for MID="
                          << content->name << ".";
         // Since the transceiver is passed to the user in an
         // OnTrack event, we must use the proxied transceiver.
@@ -2194,7 +2194,7 @@ void SdpOfferAnswerHandler::ApplyRemoteDescriptionUpdateTransceiverState(
     // 2.2.8.1.12: If the media description is rejected, and transceiver is
     // not already stopped, stop the RTCRtpTransceiver transceiver.
     if (content->rejected && !transceiver->stopped()) {
-      RTC_LOG(LS_INFO) << "Stopping transceiver for MID=" << content->name
+      RTC_LOG(LS_VERBOSE) << "Stopping transceiver for MID=" << content->name
                        << " since the media section was rejected.";
       transceiver->StopTransceiverProcedure();
     }
@@ -2674,7 +2674,7 @@ AddIceCandidateResult SdpOfferAnswerHandler::AddIceCandidateInternal(
   }
 
   if (!ready) {
-    RTC_LOG(LS_INFO) << "AddIceCandidate: Not ready to use candidate.";
+    RTC_LOG(LS_VERBOSE) << "AddIceCandidate: Not ready to use candidate.";
     return kAddIceCandidateFailNotReady;
   }
 
@@ -2851,7 +2851,7 @@ void SdpOfferAnswerHandler::ChangeSignalingState(
   if (signaling_state_ == signaling_state) {
     return;
   }
-  RTC_LOG(LS_INFO) << "Session: " << pc_->session_id() << " Old state: "
+  RTC_LOG(LS_VERBOSE) << "Session: " << pc_->session_id() << " Old state: "
                    << PeerConnectionInterface::AsString(signaling_state_)
                    << " New state: "
                    << PeerConnectionInterface::AsString(signaling_state);
@@ -3765,7 +3765,7 @@ RTCError SdpOfferAnswerHandler::UpdateTransceiversAndDataChannels(
       const auto data_mid = pc_->sctp_mid();
       if (data_mid && new_content.name != data_mid.value()) {
         // Ignore all but the first data section.
-        RTC_LOG(LS_INFO) << "Ignoring data media section with MID="
+        RTC_LOG(LS_VERBOSE) << "Ignoring data media section with MID="
                          << new_content.name;
         continue;
       }
@@ -3775,7 +3775,7 @@ RTCError SdpOfferAnswerHandler::UpdateTransceiversAndDataChannels(
         return error;
       }
     } else if (media_type == cricket::MEDIA_TYPE_UNSUPPORTED) {
-      RTC_LOG(LS_INFO) << "Ignoring unsupported media type";
+      RTC_LOG(LS_VERBOSE) << "Ignoring unsupported media type";
     } else {
       LOG_AND_RETURN_ERROR(RTCErrorType::INTERNAL_ERROR,
                            "Unknown section type.");
@@ -3840,7 +3840,7 @@ SdpOfferAnswerHandler::AssociateTransceiver(
     // If no RtpTransceiver was found in the previous step, create one with a
     // recvonly direction.
     if (!transceiver) {
-      RTC_LOG(LS_INFO) << "Adding "
+      RTC_LOG(LS_VERBOSE) << "Adding "
                        << cricket::MediaTypeToString(media_desc->type())
                        << " transceiver for MID=" << content.name
                        << " at i=" << mline_index
@@ -3957,7 +3957,7 @@ RTCError SdpOfferAnswerHandler::UpdateDataChannelTransport(
     const cricket::ContentInfo& content,
     const cricket::ContentGroup* bundle_group) {
   if (content.rejected) {
-    RTC_LOG(LS_INFO) << "Rejected data channel transport with mid="
+    RTC_LOG(LS_VERBOSE) << "Rejected data channel transport with mid="
                      << content.mid();
 
     rtc::StringBuilder sb;
@@ -4033,7 +4033,7 @@ void SdpOfferAnswerHandler::FillInMissingRemoteMids(
     RTC_DCHECK(!new_mid.empty());
     content.name = new_mid;
     new_remote_description->transport_infos()[i].content_name = new_mid;
-    RTC_LOG(LS_INFO) << "SetRemoteDescription: Remote media section at i=" << i
+    RTC_LOG(LS_VERBOSE) << "SetRemoteDescription: Remote media section at i=" << i
                      << " is missing an a=mid line. Filling in the value '"
                      << new_mid << "' " << source_explanation << ".";
   }
@@ -4562,7 +4562,7 @@ void SdpOfferAnswerHandler::RemoveRecvDirectionFromReceivingTransceiversOfType(
     RtpTransceiverDirection new_direction =
         RtpTransceiverDirectionWithRecvSet(transceiver->direction(), false);
     if (new_direction != transceiver->direction()) {
-      RTC_LOG(LS_INFO) << "Changing " << cricket::MediaTypeToString(media_type)
+      RTC_LOG(LS_VERBOSE) << "Changing " << cricket::MediaTypeToString(media_type)
                        << " transceiver (MID="
                        << transceiver->mid().value_or("<not set>") << ") from "
                        << RtpTransceiverDirectionToString(
@@ -4579,7 +4579,7 @@ void SdpOfferAnswerHandler::AddUpToOneReceivingTransceiverOfType(
     cricket::MediaType media_type) {
   RTC_DCHECK_RUN_ON(signaling_thread());
   if (GetReceivingTransceiversOfType(media_type).empty()) {
-    RTC_LOG(LS_INFO)
+    RTC_LOG(LS_VERBOSE)
         << "Adding one recvonly " << cricket::MediaTypeToString(media_type)
         << " transceiver since CreateOffer specified offer_to_receive=1";
     RtpTransceiverInit init;
@@ -4610,7 +4610,7 @@ void SdpOfferAnswerHandler::ProcessRemovalOfRemoteTrack(
     std::vector<rtc::scoped_refptr<RtpTransceiverInterface>>* remove_list,
     std::vector<rtc::scoped_refptr<MediaStreamInterface>>* removed_streams) {
   RTC_DCHECK(transceiver->mid());
-  RTC_LOG(LS_INFO) << "Processing the removal of a track for MID="
+  RTC_LOG(LS_VERBOSE) << "Processing the removal of a track for MID="
                    << *transceiver->mid();
   std::vector<rtc::scoped_refptr<MediaStreamInterface>> previous_streams =
       transceiver->internal()->receiver_internal()->streams();
@@ -4944,14 +4944,14 @@ void SdpOfferAnswerHandler::RemoveStoppedTransceivers() {
         transceiver->internal(), remote_description());
     if ((local_content && local_content->rejected) ||
         (remote_content && remote_content->rejected)) {
-      RTC_LOG(LS_INFO) << "Dissociating transceiver"
+      RTC_LOG(LS_VERBOSE) << "Dissociating transceiver"
                           " since the media section is being recycled.";
       transceiver->internal()->set_mid(absl::nullopt);
       transceiver->internal()->set_mline_index(absl::nullopt);
     } else if (!local_content && !remote_content) {
       // TODO(bugs.webrtc.org/11973): Consider if this should be removed already
       // See https://github.com/w3c/webrtc-pc/issues/2576
-      RTC_LOG(LS_INFO)
+      RTC_LOG(LS_VERBOSE)
           << "Dropping stopped transceiver that was never associated";
     }
     transceivers()->Remove(transceiver);
@@ -5024,7 +5024,7 @@ bool SdpOfferAnswerHandler::UseCandidatesInRemoteDescription() {
       bool valid = false;
       if (!ReadyToUseRemoteCandidate(candidate, remote_desc, &valid)) {
         if (valid) {
-          RTC_LOG(LS_INFO)
+          RTC_LOG(LS_VERBOSE)
               << "UseCandidatesInRemoteDescription: Not ready to use "
                  "candidate.";
         }

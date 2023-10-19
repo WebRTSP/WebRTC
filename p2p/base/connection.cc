@@ -825,7 +825,7 @@ bool Connection::pruned() const {
 void Connection::Prune() {
   RTC_DCHECK_RUN_ON(network_thread_);
   if (!pruned_ || active()) {
-    RTC_LOG(LS_INFO) << ToString() << ": Connection pruned";
+    RTC_LOG(LS_VERBOSE) << ToString() << ": Connection pruned";
     pruned_ = true;
     requests_.Clear();
     set_write_state(STATE_WRITE_TIMEOUT);
@@ -1409,7 +1409,7 @@ void Connection::OnConnectionRequestResponse(StunRequest* request,
   RTC_DCHECK_RUN_ON(network_thread_);
   // Log at LS_INFO if we receive a ping response on an unwritable
   // connection.
-  rtc::LoggingSeverity sev = !writable() ? rtc::LS_INFO : rtc::LS_VERBOSE;
+  rtc::LoggingSeverity sev = !writable() ? rtc::LS_VERBOSE : rtc::LS_VERBOSE;
 
   int rtt = request->Elapsed();
 
@@ -1533,7 +1533,7 @@ void Connection::OnConnectionRequestTimeout(ConnectionRequest* request) {
 void Connection::OnConnectionRequestSent(ConnectionRequest* request) {
   RTC_DCHECK_RUN_ON(network_thread_);
   // Log at LS_INFO if we send a ping on an unwritable connection.
-  rtc::LoggingSeverity sev = !writable() ? rtc::LS_INFO : rtc::LS_VERBOSE;
+  rtc::LoggingSeverity sev = !writable() ? rtc::LS_VERBOSE : rtc::LS_VERBOSE;
   RTC_LOG_V(sev) << ToString() << ": Sent "
                  << StunMethodToString(request->msg()->type())
                  << ", id=" << rtc::hex_encode(request->id())

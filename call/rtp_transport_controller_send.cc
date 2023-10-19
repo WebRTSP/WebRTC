@@ -326,10 +326,10 @@ void RtpTransportControllerSend::OnNetworkRouteChanged(
   auto kv = result.first;
   bool inserted = result.second;
   if (inserted || !(kv->second == network_route)) {
-    RTC_LOG(LS_INFO) << "Network route changed on transport " << transport_name
+    RTC_LOG(LS_VERBOSE) << "Network route changed on transport " << transport_name
                      << ": new_route = " << network_route.DebugString();
     if (!inserted) {
-      RTC_LOG(LS_INFO) << "old_route = " << kv->second.DebugString();
+      RTC_LOG(LS_VERBOSE) << "old_route = " << kv->second.DebugString();
     }
   }
 

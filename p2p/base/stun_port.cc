@@ -98,7 +98,7 @@ class StunBindingRequest : public StunRequest {
     }
   }
   void OnTimeout() override {
-    RTC_LOG(LS_ERROR) << "Binding request timed out from "
+    RTC_LOG(LS_WARNING) << "Binding request timed out from "
                       << port_->GetLocalAddress().ToSensitiveString() << " ("
                       << port_->Network()->name() << ")";
     port_->OnStunBindingOrResolveRequestFailed(
@@ -446,7 +446,7 @@ void UDPPort::ResolveStunAddress(const rtc::SocketAddress& stun_addr) {
         }));
   }
 
-  RTC_LOG(LS_INFO) << ToString() << ": Starting STUN host lookup for "
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Starting STUN host lookup for "
                    << stun_addr.ToSensitiveString();
   resolver_->Resolve(stun_addr, Network()->family(), field_trials());
 }
@@ -604,7 +604,7 @@ void UDPPort::OnSendPacket(const void* data, size_t size, StunRequest* req) {
   options.info_signaled_after_sent.packet_type = rtc::PacketType::kStunMessage;
   CopyPortInformationToPacketInfo(&options.info_signaled_after_sent);
   if (socket_->SendTo(data, size, sreq->server_addr(), options) < 0) {
-    RTC_LOG_ERR_EX(LS_ERROR, socket_->GetError())
+    RTC_LOG_ERR_EX(LS_WARNING, socket_->GetError())
         << "UDP send of " << size << " bytes to host "
         << sreq->server_addr().ToSensitiveNameAndAddressString()
         << " failed with error " << error_;
