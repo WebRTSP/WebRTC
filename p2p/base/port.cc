@@ -179,7 +179,7 @@ void Port::Construct() {
 
   thread_->PostDelayed(RTC_FROM_HERE, timeout_delay_, this,
                        MSG_DESTROY_IF_DEAD);
-  RTC_LOG(LS_INFO) << ToString() << ": Port created with network cost "
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Port created with network cost "
                    << network_cost_;
 }
 
@@ -380,7 +380,7 @@ void Port::OnReadPacket(const char* data,
   } else if (!msg) {
     // STUN message handled already
   } else if (msg->type() == STUN_BINDING_REQUEST) {
-    RTC_LOG(LS_INFO) << "Received " << StunMethodToString(msg->type())
+    RTC_LOG(LS_VERBOSE) << "Received " << StunMethodToString(msg->type())
                      << " id=" << rtc::hex_encode(msg->transaction_id())
                      << " from unknown address " << addr.ToSensitiveString();
     // We need to signal an unknown address before we handle any role conflict
@@ -389,7 +389,7 @@ void Port::OnReadPacket(const char* data,
     SignalUnknownAddress(this, addr, proto, msg.get(), remote_username, false);
     // Check for role conflicts.
     if (!MaybeIceRoleConflict(addr, msg.get(), remote_username)) {
-      RTC_LOG(LS_INFO) << "Received conflicting role from the peer.";
+      RTC_LOG(LS_VERBOSE) << "Received conflicting role from the peer.";
       return;
     }
   } else if (msg->type() == GOOG_PING_REQUEST) {
@@ -784,7 +784,7 @@ void Port::SendBindingErrorResponse(StunMessage* message,
   options.info_signaled_after_sent.packet_type =
       rtc::PacketType::kIceConnectivityCheckResponse;
   SendTo(buf.Data(), buf.Length(), addr, options, false);
-  RTC_LOG(LS_INFO) << ToString() << ": Sending STUN "
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Sending STUN "
                    << StunMethodToString(response.type())
                    << ": reason=" << reason << " to "
                    << addr.ToSensitiveString();
@@ -887,7 +887,7 @@ void Port::UpdateNetworkCost() {
   if (network_cost_ == new_cost) {
     return;
   }
-  RTC_LOG(LS_INFO) << "Network cost changed from " << network_cost_ << " to "
+  RTC_LOG(LS_VERBOSE) << "Network cost changed from " << network_cost_ << " to "
                    << new_cost
                    << ". Number of candidates created: " << candidates_.size()
                    << ". Number of connections created: "
@@ -930,7 +930,7 @@ void Port::OnConnectionDestroyed(Connection* conn) {
 
 void Port::Destroy() {
   RTC_DCHECK(connections_.empty());
-  RTC_LOG(LS_INFO) << ToString() << ": Port deleted";
+  RTC_LOG(LS_VERBOSE) << ToString() << ": Port deleted";
   SendPortDestroyed(this);
   delete this;
 }

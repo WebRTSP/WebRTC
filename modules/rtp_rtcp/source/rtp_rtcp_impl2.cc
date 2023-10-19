@@ -798,7 +798,7 @@ void ModuleRtpRtcpImpl2::MaybeSendRtcpAtOrAfterTimestamp(
     return;
   }
 
-  RTC_DLOG(LS_WARNING)
+  RTC_DLOG(LS_VERBOSE)
       << "BUGBUG: Task queue scheduled delayed call too early.";
 
   ScheduleMaybeSendRtcpAtOrAfterTimestamp(execution_time, execution_time - now);

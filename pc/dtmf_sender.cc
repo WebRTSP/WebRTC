@@ -235,7 +235,7 @@ void DtmfSender::DoInsertDtmf() {
 void DtmfSender::OnProviderDestroyed() {
   RTC_DCHECK_RUN_ON(signaling_thread_);
 
-  RTC_LOG(LS_INFO) << "The Dtmf provider is deleted. Clear the sending queue.";
+  RTC_LOG(LS_VERBOSE) << "The Dtmf provider is deleted. Clear the sending queue.";
   StopSending();
   provider_ = nullptr;
 }
