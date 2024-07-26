@@ -17,11 +17,6 @@ NS_ASSUME_NONNULL_BEGIN
 @interface RTC_OBJC_TYPE (RTCAudioSession)
 ()
 
-    /** Number of times setActive:YES has succeeded without a balanced call to
-     *  setActive:NO.
-     */
-    @property(nonatomic, readonly) int activationCount;
-
 /** The number of times `beginWebRTCSession` was called without a balanced call
  *  to `endWebRTCSession`.
  */
