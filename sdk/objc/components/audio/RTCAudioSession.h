@@ -141,6 +141,11 @@ RTC_OBJC_EXPORT
  */
 @property(nonatomic, readonly) BOOL isActive;
 
+/** Number of times setActive:YES has succeeded without a balanced call to
+*  setActive:NO.
+*/
+@property(nonatomic, readonly) int activationCount;
+
 /** If YES, WebRTC will not initialize the audio unit automatically when an
  *  audio track is ready for playout or recording. Instead, applications should
  *  call setIsAudioEnabled. If NO, WebRTC will initialize the audio unit
