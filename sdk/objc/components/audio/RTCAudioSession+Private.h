@@ -84,6 +84,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)notifyDidChangeCanPlayOrRecord:(BOOL)canPlayOrRecord;
 - (void)notifyDidStartPlayOrRecord;
 - (void)notifyDidStopPlayOrRecord;
+- (void)notifyDidStartRecord;
+- (void)notifyDidStopRecord;
 
 @end
 

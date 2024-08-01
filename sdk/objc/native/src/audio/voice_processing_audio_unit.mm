@@ -14,6 +14,7 @@
 #include "system_wrappers/include/metrics.h"
 
 #import "base/RTCLogging.h"
+#import "components/audio/RTCAudioSession+Private.h"
 #import "sdk/objc/components/audio/RTCAudioSession.h"
 #import "sdk/objc/components/audio/RTCAudioSessionConfiguration.h"
 
@@ -564,6 +565,10 @@ OSStatus VoiceProcessingAudioUnit::Start() {
     RTCLog(@"Started audio unit");
   }
   state_ = kStarted;
+
+  if (recording_enabled_)
+    [[RTC_OBJC_TYPE(RTCAudioSession) sharedInstance] notifyDidStartRecord];
+
   return noErr;
 }
 
@@ -713,8 +718,10 @@ void VoiceProcessingAudioUnit::DisposeAudioUnit() {
     playout_enabled_ = false;
     recording_enabled_ = false;
 
-    if (recording_was_enabled)
+    if (recording_was_enabled) {
       mic_owning_.store(false, std::memory_order_relaxed);
+      [[RTC_OBJC_TYPE(RTCAudioSession) sharedInstance] notifyDidStopRecord];
+    }
   }
 }
 
