@@ -1009,4 +1009,22 @@ ABSL_CONST_INIT thread_local bool mutex_locked = false;
   }
 }
 
+- (void)notifyDidStartRecord {
+  for (id delegate : self.delegates) {
+    SEL sel = @selector(audioSessionDidStartRecord:);
+    if ([delegate respondsToSelector:sel]) {
+      [delegate audioSessionDidStartRecord:self];
+    }
+  }
+}
+
+- (void)notifyDidStopRecord {
+  for (id delegate : self.delegates) {
+    SEL sel = @selector(audioSessionDidStopRecord:);
+    if ([delegate respondsToSelector:sel]) {
+      [delegate audioSessionDidStopRecord:self];
+    }
+  }
+}
+
 @end
