@@ -59,6 +59,7 @@ class AudioState : public webrtc::AudioState {
   void AddSendingStream(webrtc::AudioSendStream* stream,
                         int sample_rate_hz,
                         size_t num_channels);
+  void SendingStreamMuted(webrtc::AudioSendStream* stream, bool);
   void RemoveSendingStream(webrtc::AudioSendStream* stream);
 
  private:
@@ -67,6 +68,9 @@ class AudioState : public webrtc::AudioState {
 
   void StartPlayout();
   void StopPlayout();
+
+  void StartRecording();
+  void StopRecording();
 
   SequenceChecker thread_checker_;
   SequenceChecker process_thread_checker_{SequenceChecker::kDetached};
@@ -90,6 +94,7 @@ class AudioState : public webrtc::AudioState {
   struct StreamProperties {
     int sample_rate_hz = 0;
     size_t num_channels = 0;
+    bool muted = false;
   };
   std::map<webrtc::AudioSendStream*, StreamProperties> sending_streams_;
 };

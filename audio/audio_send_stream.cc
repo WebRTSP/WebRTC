@@ -399,6 +399,8 @@ bool AudioSendStream::SendTelephoneEvent(int payload_type,
 void AudioSendStream::SetMuted(bool muted) {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
   channel_send_->SetInputMute(muted);
+
+  audio_state()->SendingStreamMuted(this, muted);
 }
 
 webrtc::AudioSendStream::Stats AudioSendStream::GetStats() const {
