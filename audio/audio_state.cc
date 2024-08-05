@@ -130,14 +130,9 @@ void AudioState::RemoveReceivingStream(
   }
 }
 
-void AudioState::AddSendingStream(webrtc::AudioSendStream* stream,
-                                  int sample_rate_hz,
-                                  size_t num_channels) {
+void AudioState::StartRecording()
+{
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  auto& properties = sending_streams_[stream];
-  properties.sample_rate_hz = sample_rate_hz;
-  properties.num_channels = num_channels;
-  UpdateAudioTransportWithSendingStreams();
 
   // Make sure recording is initialized; start recording if enabled.
   auto* adm = config_.audio_device_module.get();
@@ -152,13 +147,56 @@ void AudioState::AddSendingStream(webrtc::AudioSendStream* stream,
   }
 }
 
+void AudioState::StopRecording()
+{
+  RTC_DCHECK_RUN_ON(&thread_checker_);
+
+  config_.audio_device_module->StopRecording();
+}
+
+void AudioState::AddSendingStream(webrtc::AudioSendStream* stream,
+                                  int sample_rate_hz,
+                                  size_t num_channels) {
+  RTC_DCHECK_RUN_ON(&thread_checker_);
+  auto& properties = sending_streams_[stream];
+  properties.sample_rate_hz = sample_rate_hz;
+  properties.num_channels = num_channels;
+  UpdateAudioTransportWithSendingStreams();
+
+  StartRecording();
+}
+
+void AudioState::SendingStreamMuted(webrtc::AudioSendStream* stream, bool muted)
+{
+  auto it = sending_streams_.find(stream);
+  if (it != sending_streams_.end()) {
+    if (it->second.muted != muted) {
+      it->second.muted = muted;
+    }
+  }
+
+  bool allMuted = true;
+  for (const auto& pair: sending_streams_) {
+    if (!pair.second.muted) {
+      allMuted = false;
+      break;
+    }
+  }
+
+  if (allMuted)
+    StopRecording();
+  else
+    StartRecording();
+}
+
 void AudioState::RemoveSendingStream(webrtc::AudioSendStream* stream) {
   RTC_DCHECK_RUN_ON(&thread_checker_);
   auto count = sending_streams_.erase(stream);
   RTC_DCHECK_EQ(1, count);
   UpdateAudioTransportWithSendingStreams();
+
   if (sending_streams_.empty()) {
-    config_.audio_device_module->StopRecording();
+    StopRecording();
   }
 }
 
@@ -188,7 +226,7 @@ void AudioState::SetRecording(bool enabled) {
         config_.audio_device_module->StartRecording();
       }
     } else {
-      config_.audio_device_module->StopRecording();
+      StopRecording();
     }
   }
 }

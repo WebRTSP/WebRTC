@@ -257,6 +257,8 @@ int32_t AudioDeviceIOS::StopPlayout() {
       RTCLogError(@"StopPlayout failed to disable playout in audio unit.");
         return -1;
     }
+    // StopPlayout() can lead to audio unit recreate and io thread may be different after
+    io_thread_checker_.Detach();
   }
   playing_.store(0, std::memory_order_release);
 
@@ -321,6 +323,8 @@ int32_t AudioDeviceIOS::StopRecording() {
       RTCLogError(@"StopRecording failed to disable recording in audio unit.");
       return -1;
     }
+    // StopRecording() can lead to audio unit recreate and io thread may be different after
+    io_thread_checker_.Detach();
   }
   recording_.store(0, std::memory_order_release);
   return 0;
