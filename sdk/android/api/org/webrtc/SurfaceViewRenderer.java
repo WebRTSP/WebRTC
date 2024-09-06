@@ -210,12 +210,15 @@ public class SurfaceViewRenderer extends SurfaceView
       final float frameAspectRatio = rotatedFrameWidth / (float) rotatedFrameHeight;
       final int drawnFrameWidth;
       final int drawnFrameHeight;
-      if (frameAspectRatio > layoutAspectRatio) {
-        drawnFrameWidth = (int) (rotatedFrameHeight * layoutAspectRatio);
-        drawnFrameHeight = rotatedFrameHeight;
-      } else {
+      if (rotatedFrameWidth >= getWidth() || rotatedFrameHeight >= getHeight()) {
+        drawnFrameWidth = getWidth();
+        drawnFrameHeight = getHeight();
+      } else if (frameAspectRatio > layoutAspectRatio) {
         drawnFrameWidth = rotatedFrameWidth;
         drawnFrameHeight = (int) (rotatedFrameWidth / layoutAspectRatio);
+      } else {
+        drawnFrameWidth = (int) (rotatedFrameHeight * layoutAspectRatio);
+        drawnFrameHeight = rotatedFrameHeight;
       }
       // Aspect ratio of the drawn frame and the view is the same.
       final int width = Math.min(getWidth(), drawnFrameWidth);

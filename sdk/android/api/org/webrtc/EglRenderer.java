@@ -690,29 +690,41 @@ public class EglRenderer implements VideoSink {
       drawnAspectRatio = layoutAspectRatio != 0f ? layoutAspectRatio : frameAspectRatio;
     }
 
-    final float scaleX;
-    final float scaleY;
+    final int viewportX;
+    final int viewportY;
+    final int viewportWidth;
+    final int viewportHeight;
 
     if (frameAspectRatio > drawnAspectRatio) {
-      scaleX = drawnAspectRatio / frameAspectRatio;
-      scaleY = 1f;
+      final int frameHeight = (int) (eglBase.surfaceWidth() / frameAspectRatio + .5f);
+      viewportX = 0;
+      viewportY = (eglBase.surfaceHeight() - frameHeight) / 2;
+      viewportWidth = eglBase.surfaceWidth();
+      viewportHeight = eglBase.surfaceHeight() - 2 * viewportY; // prefer same size borders over precise frame aspect
+    } else if (frameAspectRatio < drawnAspectRatio) {
+      final int frameWidth = (int) (eglBase.surfaceHeight() * frameAspectRatio + .5f);
+      viewportX = (eglBase.surfaceWidth() - frameWidth) / 2;
+      viewportY = 0;
+      viewportWidth = eglBase.surfaceWidth() - 2 * viewportX; // prefer same size borders over precise frame aspect
+      viewportHeight = eglBase.surfaceHeight();
     } else {
-      scaleX = 1f;
-      scaleY = frameAspectRatio / drawnAspectRatio;
+      viewportX = 0;
+      viewportY = 0;
+      viewportWidth = eglBase.surfaceWidth();
+      viewportHeight = eglBase.surfaceHeight();
     }
 
     drawMatrix.reset();
     drawMatrix.preTranslate(0.5f, 0.5f);
     drawMatrix.preScale(mirrorHorizontally ? -1f : 1f, mirrorVertically ? -1f : 1f);
-    drawMatrix.preScale(scaleX, scaleY);
     drawMatrix.preTranslate(-0.5f, -0.5f);
 
     try {
       if (shouldRenderFrame) {
         GLES20.glClearColor(0 /* red */, 0 /* green */, 0 /* blue */, 0 /* alpha */);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        frameDrawer.drawFrame(frame, drawer, drawMatrix, 0 /* viewportX */, 0 /* viewportY */,
-            eglBase.surfaceWidth(), eglBase.surfaceHeight());
+        frameDrawer.drawFrame(frame, drawer, drawMatrix, viewportX, viewportY,
+            viewportWidth, viewportHeight);
 
         final long swapBuffersStartTimeNs = System.nanoTime();
         swapBuffersOnRenderThread(frame, swapBuffersStartTimeNs);
