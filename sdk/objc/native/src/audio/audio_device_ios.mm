@@ -232,6 +232,11 @@ int32_t AudioDeviceIOS::StartPlayout() {
   // StartPlayout() can lead to audio unit recreate and io thread may be different after
   io_thread_checker_.Detach();
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wthread-safety-analysis"
+  last_playout_time_ = 0;
+#pragma clang diagnostic pop
+
   if(!audio_unit_->StartPlayout()) {
     RTCLogError(@"StartPlayout failed to enable playout in audio unit.");
     return -1;
@@ -464,7 +469,7 @@ OSStatus AudioDeviceIOS::OnGetPlayoutData(AudioUnitRenderActionFlags* flags,
   // core audio layer will most likely run dry in this state.
   ++num_playout_callbacks_;
   const int64_t now_time = rtc::TimeMillis();
-  if (time_stamp->mSampleTime != num_frames) {
+  if (time_stamp->mSampleTime != num_frames && last_playout_time_ != 0) {
     const int64_t delta_time = now_time - last_playout_time_;
     const int glitch_threshold = 1.6 * playout_parameters_.GetBufferSizeInMilliseconds();
     if (delta_time > glitch_threshold) {
