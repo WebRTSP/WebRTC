@@ -156,14 +156,15 @@ void AudioState::StopRecording()
 
 void AudioState::AddSendingStream(webrtc::AudioSendStream* stream,
                                   int sample_rate_hz,
-                                  size_t num_channels) {
+                                  size_t num_channels,
+                                  bool muted) {
   RTC_DCHECK_RUN_ON(&thread_checker_);
   auto& properties = sending_streams_[stream];
   properties.sample_rate_hz = sample_rate_hz;
   properties.num_channels = num_channels;
   UpdateAudioTransportWithSendingStreams();
 
-  StartRecording();
+  SendingStreamMuted(stream, muted);
 }
 
 void AudioState::SendingStreamMuted(webrtc::AudioSendStream* stream, bool muted)

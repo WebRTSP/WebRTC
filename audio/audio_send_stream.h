@@ -162,6 +162,7 @@ class AudioSendStream final : public webrtc::AudioSendStream,
 
   webrtc::AudioSendStream::Config config_
       RTC_GUARDED_BY(worker_thread_checker_);
+  bool muted_ RTC_GUARDED_BY(worker_thread_checker_) = true;
   rtc::scoped_refptr<webrtc::AudioState> audio_state_;
   const std::unique_ptr<voe::ChannelSendInterface> channel_send_;
   const bool use_legacy_overhead_calculation_;

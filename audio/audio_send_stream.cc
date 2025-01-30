@@ -350,7 +350,8 @@ void AudioSendStream::Start() {
   channel_send_->StartSend();
   sending_ = true;
   audio_state()->AddSendingStream(this, encoder_sample_rate_hz_,
-                                  encoder_num_channels_);
+                                  encoder_num_channels_,
+                                  muted_);
 }
 
 void AudioSendStream::Stop() {
@@ -398,6 +399,7 @@ bool AudioSendStream::SendTelephoneEvent(int payload_type,
 
 void AudioSendStream::SetMuted(bool muted) {
   RTC_DCHECK_RUN_ON(&worker_thread_checker_);
+  muted_ = muted;
   channel_send_->SetInputMute(muted);
 
   audio_state()->SendingStreamMuted(this, muted);
@@ -550,7 +552,7 @@ void AudioSendStream::StoreEncoderProperties(int sample_rate_hz,
   encoder_num_channels_ = num_channels;
   if (sending_) {
     // Update AudioState's information about the stream.
-    audio_state()->AddSendingStream(this, sample_rate_hz, num_channels);
+    audio_state()->AddSendingStream(this, sample_rate_hz, num_channels, muted_);
   }
 }
 

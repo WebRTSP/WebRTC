@@ -58,7 +58,8 @@ class AudioState : public webrtc::AudioState {
 
   void AddSendingStream(webrtc::AudioSendStream* stream,
                         int sample_rate_hz,
-                        size_t num_channels);
+                        size_t num_channels,
+                        bool muted);
   void SendingStreamMuted(webrtc::AudioSendStream* stream, bool);
   void RemoveSendingStream(webrtc::AudioSendStream* stream);
 
@@ -94,7 +95,7 @@ class AudioState : public webrtc::AudioState {
   struct StreamProperties {
     int sample_rate_hz = 0;
     size_t num_channels = 0;
-    bool muted = false;
+    bool muted = true;
   };
   std::map<webrtc::AudioSendStream*, StreamProperties> sending_streams_;
 };
